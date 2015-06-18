@@ -1,9 +1,10 @@
 # html-parsing-perl
 Example of using HTML::TreeBuilder for html parsing
 
-chmod +x perlurl
+chmod +x pover4.pl
 
-check $urlbase and your proxy in script
+check your proxy in script
 
 command line:
-./perlurl boardname
+./pover4.pl (-4|-h) boardname
+output:pover-boardname.html
