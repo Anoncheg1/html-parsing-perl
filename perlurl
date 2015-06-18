@@ -1,0 +1,180 @@
+#!/usr/bin/env perl
+use strict; # ограничить применение небезопасных конструкций
+use warnings; # выводить подробные предупреждения компилятора
+use diagnostics; # выводить подробную диагностику ошибок
+use LWP::UserAgent;
+require HTTP::Response;
+use HTML::TreeBuilder;
+package main;
+
+sub parser($){ #threads to div block "main"
+    my $ref2threads = shift;
+    my @threadsres;
+    foreach my $el (@$ref2threads){
+	my $elr = $el->look_down("class", "messageroot");
+	#img
+	my $aimg = $elr->look_down("class", "image_link");
+	my $imgres = $aimg->as_HTML;
+	if($imgres =~ m%img/nope.png|img/invalid.png% ){
+	    $imgres = '';
+	}
+	#img
+	my $topic = $elr->look_down("class", "topicline");
+#	my $b = $topic->look_down('_tag', 'b');
+#	my $bres = $b->as_HTML;
+#	my $fright = $b->right();
+	#print $fright, "\n";
+	my $topicres = $topic->as_HTML;
+	#push @threadsres, "<div>".$imgres.$bres.$fright."</div>";
+	push @threadsres, "<div>".$imgres.$topicres."</div>";
+    }
+    my $res = join ('', @threadsres);
+    return '<div id="main">'.$res.'</div>';
+}
+
+# устанавливаем обработчик сигнала INT
+$SIG{INT} = \&sig_handler; # ссылка на подпрограмму
+sub sig_handler { # подпрограмма-обработчик сигнала
+   print "Получен сигнал INT по нажатию Ctrl+C\n";
+   print "Заканчиваю работу!\n";
+   exit; # завершение выполнения программы
+}
+
+my $razd = shift; #имя раздела, параметр коммандной строки
+die "razdel name please" unless $razd ;
+
+my $ua = LWP::UserAgent->new; #параметры подключения
+$ua->agent("Mozilla/5.0 (Windows NT 5.1; rv:5.0.1) Gecko/20100101 Firefox/5.0.1");
+$ua->proxy(['http'], "http://127.0.0.1:4446");
+my $urlbase = "http://404chan.i2p/";
+my $url = $urlbase.$razd."-1.html"; #ссылка на первую страницу раздела
+
+my $req = HTTP::Request->new(GET => $url);
+my $res;
+for(my $i = 1; $i < 7; $i++){ #цикл запросов первой страницы раздела
+    $res = $ua->request($req);
+    last if ($res->is_success);
+    print "one more time\n";
+}
+die "No connection".($res->status_line)."\n" unless $res->is_success;
+
+my $tree = HTML::TreeBuilder->new; # обрабатываем первую страницу в дерево
+$tree->ignore_ignorable_whitespace(0);
+$tree->store_comments(0);
+#    print $res->decoded_content;
+$tree->parse($res->decoded_content);
+$tree->eof();
+binmode(STDOUT, ":utf8");
+
+my $divel=$tree->look_down("class", "pagelist"); #страниц в разделе
+my @num = $divel->as_HTML =~ m/\[[0-9]+\]/ig; undef $divel;
+my $pages = substr(pop @num,1,-1); #получили количество страниц
+
+my @threads1 = $tree->look_down("class", "thread");
+my @weba; #собиратель готовых к печати вставок
+push @weba, parser(\@threads1);
+
+$tree = $tree->delete; #удаляем дерево первой страницы
+
+for(my $i = 2; $i <= $pages; $i++){ # делаем то же самое с остольными страницами
+    my $url = $urlbase.$razd."-".$i.".html"; #ссылка на первую страницу раздела
+
+    my $req = HTTP::Request->new(GET => $url);
+    my $res;
+    for(my $i = 1; $i < 7; $i++){ #цикл запросов
+	$res = $ua->request($req);
+	last if ($res->is_success);
+	print "one more time\n";
+    }
+    if($res->is_success){
+	print "well done ".$url."\n";
+    }else{
+	print "No connection".($res->status_line)." for ".$url."\n over";
+	last;
+    }
+
+    my $tree = HTML::TreeBuilder->new; # обрабатываем первую страницу в дерево
+    $tree->ignore_ignorable_whitespace(0);
+    $tree->store_comments(0);
+    $tree->parse($res->decoded_content);
+    $tree->eof();
+
+    my @threads = $tree->look_down("class", "thread");
+    push @weba, parser(\@threads);
+    $tree = $tree->delete;
+}
+
+my $webins = join ('', @weba); #собираем все строки из массива в строку
+
+
+#$divel->dump;
+#    print($tree->content_list());
+
+
+#    print "ref=". ref($res->content);
+#  my $p = new HTML::Parser;
+#   $p->parse($res->content);
+
+
+my $web_page = <<HTML_OUT; # html с названиями тредов и картинками
+<!DOCTYPE html>
+<html>
+<head>
+    <title>pagename</title>
+    <base href="$urlbase" target="_blank">
+    <style>
+    *{
+        margin: 0px;
+        padding: 0px;
+    }
+    html, body{
+        height: 100%;
+    }
+    body{
+        background-color: #ccc;
+    }
+
+    div {
+        margin:1px;
+        text-align: center;
+    }
+    #main{
+        margin:2px;
+        border: 1px solid #fff; 
+        height: 216px : initial;
+        overflow: hidden;
+    }
+    #main>div{
+        width: 180px;
+        height: 210px;
+        display: inline-block;
+    }
+    </style>
+
+    <script>
+$(document).ready(function(){
+
+});
+    </script>
+</head>
+<body>
+<!--
+<div id="main">
+<div>1</div>
+<div>2</div>
+<div>3</div>
+</div>
+-->
+$webins
+
+</body>
+</html>
+HTML_OUT
+
+    open FILE, ">", "perlurlparser-".$razd.".html" or die $!;
+binmode(FILE, ":utf8");
+print FILE $web_page;
+close FILE;
+
+
+__END__
