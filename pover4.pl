@@ -21,13 +21,16 @@ sub parser($){ #threads to div block "main"
 	}
 	#img
 	my $topic = $elr->look_down("class", "topicline");
-#	my $b = $topic->look_down('_tag', 'b');
-#	my $bres = $b->as_HTML;
-#	my $fright = $b->right();
-	#print $fright, "\n";
+	my $b = $topic->look_down('_tag', 'b');
+	#	my $fright = $b->right();
+	my $message;                       #first line of toppic if subject is None
+	if ($b->as_text eq 'None'){
+	    $b->delete();
+	    $message = substr($elr->look_down("class", "message_span")->as_text, 0,55);
+	}else{ $message = ''; }
 	my $topicres = $topic->as_HTML;
 	#push @threadsres, "<div>".$imgres.$bres.$fright."</div>";
-	push @threadsres, "<div>".$imgres.$topicres."</div>";
+	push @threadsres, "<div>".$imgres.$topicres.$message."</div>";
     }
     my $res = join ('', @threadsres);
     return '<div id="main">'.$res.'</div>';
@@ -77,6 +80,7 @@ binmode(STDOUT, ":utf8");
 my $divel=$tree->look_down("class", "pagelist"); #страниц в разделе
 my @num = $divel->as_HTML =~ m/\[[0-9]+\]/ig; undef $divel;
 my $pages = substr(pop @num,1,-1); #получили количество страниц
+#$tree->dump;
 
 my @threads1 = $tree->look_down("class", "thread");
 my @weba; #собиратель готовых к печати вставок
