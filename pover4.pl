@@ -163,8 +163,8 @@ my $web_page = <<HTML_OUT; # html с названиями тредов и кар
         overflow: hidden;
     }
     #main>div{
-        width: 180px;
-        height: 210px;
+        width:-moz-min-content;
+        height:auto;
         display: inline-block;
     }
     </style>
