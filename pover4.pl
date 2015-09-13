@@ -6,10 +6,14 @@ use LWP::UserAgent;
 require HTTP::Response;
 use HTML::TreeBuilder;
 use Getopt::Std;
+#Debian: liblwp-protocol-socks-perl
+use LWP::Protocol::socks;
 package main;
 
-sub parser($){ #threads to div block "main"
-    my $ref2threads = shift;
+my $thmax = 30; #MAX THREAD COUNT
+
+#threads to div block "main"
+sub parser($){ my $ref2threads = $_[0];
     my @threadsres;
     foreach my $el (@$ref2threads){
 	my $elr = $el->look_down("class", "messageroot");
@@ -51,13 +55,19 @@ my $razd = shift; # имя раздела, параметр коммандной
 
 my $ua = LWP::UserAgent->new; #параметры подключения
 $ua->agent("Mozilla/5.0 (Windows NT 5.1; rv:5.0.1) Gecko/20100101 Firefox/5.0.1");
-$ua->proxy(['http'], "http://127.0.0.1:4446");
+#$ua->proxy(['http'], "http://127.0.0.1:4446");
 my $urlbase;
 if ($firstpar eq '-h'){
     $urlbase = "http://hiddenchan.i2p/";
+    $ua->proxy(['http'], "http://127.0.0.1:4446"); #i2p
 }elsif($firstpar eq '-4'){
     $urlbase = "http://404chan.i2p/";
+    $ua->proxy(['http'], "http://127.0.0.1:4446"); #i2p
+}elsif($firstpar eq '-f'){
+    $urlbase = "http://lp4t52xp5vlhyhkb.onion/";
+    $ua->proxy([qw(http https)] => "socks://172.16.0.1:9150"); #tor
 }else{ die "wrong first parameter. you need -h or -4"; }
+
 my $url = $urlbase.$razd."-1.html"; #ссылка на первую страницу раздела
 
 my $req = HTTP::Request->new(GET => $url);
@@ -78,8 +88,9 @@ $tree->eof();
 binmode(STDOUT, ":utf8");
 
 my $divel=$tree->look_down("class", "pagelist"); #страниц в разделе
-my @num = $divel->as_HTML =~ m/\[[0-9]+\]/ig; undef $divel;
+my @num = $divel->as_HTML =~ m/\[[0-9]+\]/ig; 
 my $pages = substr(pop @num,1,-1); #получили количество страниц
+$pages = ($pages > $thmax) ? $thmax : $pages ;
 #$tree->dump;
 
 my @threads1 = $tree->look_down("class", "thread");
@@ -182,6 +193,8 @@ open FILE, ">", "pover4-".$firstpar."-".$razd.".html" or die $!;
 binmode(FILE, ":utf8");
 print FILE $web_page;
 close FILE;
+
+print "pover4-".$firstpar."-".$razd.".html","\n";
 
 
 __END__
