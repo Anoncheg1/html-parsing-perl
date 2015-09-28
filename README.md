@@ -6,5 +6,5 @@ chmod +x pover4.pl
 check your proxy in script
 
 command line:
-./pover4.pl (-4|-h) boardname
+./pover4.pl (-4|-h|-f) boardname
 output:pover-boardname.html

@@ -8,9 +8,13 @@ use HTML::TreeBuilder;
 use Getopt::Std;
 #Debian: liblwp-protocol-socks-perl
 use LWP::Protocol::socks;
+
 package main;
 
 my $thmax = 30; #MAX THREAD COUNT
+
+binmode(STDOUT, ":utf8");
+$SIG{INT} = \&stop_and_print; # ссылка на подпрограмму
 
 #threads to div block "main"
 sub parser($){ my $ref2threads = $_[0];
@@ -33,24 +37,15 @@ sub parser($){ my $ref2threads = $_[0];
 	    $message = substr($elr->look_down("class", "message_span")->as_text, 0,55);
 	}else{ $message = ''; }
 	my $topicres = $topic->as_HTML;
-	#push @threadsres, "<div>".$imgres.$bres.$fright."</div>";
 	push @threadsres, "<div>".$imgres.$topicres.$message."</div>";
     }
     my $res = join ('', @threadsres);
     return '<div id="main">'.$res.'</div>';
 }
 
-# устанавливаем обработчик сигнала INT
-$SIG{INT} = \&sig_handler; # ссылка на подпрограмму
-sub sig_handler { # подпрограмма-обработчик сигнала
-   print "Получен сигнал INT по нажатию Ctrl+C\n";
-   print "Заканчиваю работу!\n";
-   exit; # завершение выполнения программы
-}
-
 die "-h for hiddenchan.i2p or -4 for 404chan.i2p\n" unless ($ARGV[0]);
 die "board name please\n" unless ($ARGV[1]);
-my $firstpar = shift; # первый параметр: -h или -4 то есть hiddenchan или 404chan
+my $firstpar = shift; # первый параметр: -h или -4 или -f
 my $razd = shift; # имя раздела, параметр коммандной строки
 
 my $ua = LWP::UserAgent->new; #параметры подключения
@@ -66,7 +61,7 @@ if ($firstpar eq '-h'){
 }elsif($firstpar eq '-f'){
     $urlbase = "http://lp4t52xp5vlhyhkb.onion/";
     $ua->proxy([qw(http https)] => "socks://172.16.0.1:9150"); #tor
-}else{ die "wrong first parameter. you need -h or -4"; }
+}else{ die "wrong first parameter. you need -h or -4 or -f"; }
 
 my $url = $urlbase.$razd."-1.html"; #ссылка на первую страницу раздела
 
@@ -85,12 +80,11 @@ $tree->store_comments(0);
 #    print $res->decoded_content;
 $tree->parse($res->decoded_content);
 $tree->eof();
-binmode(STDOUT, ":utf8");
 
 my $divel=$tree->look_down("class", "pagelist"); #страниц в разделе
 my @num = $divel->as_HTML =~ m/\[[0-9]+\]/ig; 
 my $pages = substr(pop @num,1,-1); #получили количество страниц
-$pages = ($pages > $thmax) ? $thmax : $pages ;
+$pages = ($pages > $thmax) ? $thmax : $pages;
 #$tree->dump;
 
 my @threads1 = $tree->look_down("class", "thread");
@@ -127,74 +121,94 @@ for(my $i = 2; $i <= $pages; $i++){ # делаем то же самое с ос�
     $tree = $tree->delete;
 }
 
-my $webins = join ('', @weba); #собираем все строки из массива в строку
 
-#$divel->dump;
-#    print($tree->content_list());
-#    print "ref=". ref($res->content);
+&stop_and_print;
+
+#Finish here.
 
 
-my $web_page = <<HTML_OUT; # html с названиями тредов и картинками
+
+
+
+
+
+
+
+
+
+#function
+#       Print what we get
+sub stop_and_print {
+    if (@weba){
+	
+	my $webins = join ('', @weba); #собираем все строки из массива в строку
+
+	#$divel->dump;
+	#    print($tree->content_list());
+	#    print "ref=". ref($res->content);
+
+
+	my $web_page = <<HTML_OUT; # html с названиями тредов и картинками
 <!DOCTYPE html>
-<html>
-<head>
+    <html>
+    <head>
     <title>$razd</title>
     <base href="$urlbase" target="_blank">
     <style>
     *{
-        margin: 0px;
-        padding: 0px;
-    }
-    html, body{
-        height: 100%;
-    }
-    body{
-        background-color: #ccc;
-    }
+      margin: 0px;
+      padding: 0px;
+}
+	html, body{
+	  height: 100%;
+	}
+	body{
+	    background-color: #ccc;
+	}
 
-    div {
-        margin:1px;
-        text-align: center;
-    }
-    #main{
-        margin:2px;
-        border: 1px solid #fff; 
+	div {
+	  margin:1px;
+	    text-align: center;
+	}
+	#main{
+      margin:2px;
+      border: 1px solid #fff; 
         height: 216px : initial;
-        overflow: hidden;
+      overflow: hidden;
     }
     #main>div{
-        width:-moz-min-content;
-        height:auto;
-        display: inline-block;
-    }
-    </style>
-
+  width:-moz-min-content;
+  height:auto;
+  display: inline-block;
+}
+</style>
     <script>
-$(document).ready(function(){
-
+    $(document).ready(function(){
 });
-    </script>
-</head>
-<body>
-<!--
-<div id="main">
-<div>1</div>
-<div>2</div>
-<div>3</div>
-</div>
--->
-$webins
+</script>
+    </head>
+    <body>
+    <!--
+    <div id="main">
+    <div>1</div>
+    <div>2</div>
+    <div>3</div>
+    </div>
+    -->
+    $webins
 
-</body>
-</html>
+    </body>
+    </html>
 HTML_OUT
 
-open FILE, ">", "pover4-".$firstpar."-".$razd.".html" or die $!;
-binmode(FILE, ":utf8");
-print FILE $web_page;
-close FILE;
+     open FILE, ">", "pover4-".$firstpar."-".$razd.".html" or die $!;
+     binmode(FILE, ":utf8");
+     print FILE $web_page;
+     close FILE;
 
-print "pover4-".$firstpar."-".$razd.".html","\n";
-
+     print "pover4-".$firstpar."-".$razd.".html","\n";
+  }
+  exit;    
+}
 
 __END__
