@@ -137,7 +137,7 @@ for(my $i = 2; $i <= $pages; $i++){ # делаем то же самое с ос�
 
 
 #function
-#       Print what we get
+#       Print what we got
 sub stop_and_print {
     if (@weba){
 	
